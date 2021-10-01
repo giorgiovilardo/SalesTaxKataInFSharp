@@ -78,4 +78,5 @@ type Item =
 
 I'm leaving out quantity as it's not intrinsic to the item, it's more part of the receipt (tuple of item and quantity?).
 I'm doubtful that `TaxStatus` should stay on the item now; something `Local` here might be `Imported` in another nation.
-For now, it's fine like this.
+For now, it's fine like this. Can we do something for the `Name`? Enforcing some rules, some pre-validation? Other than
+not being empty, there's not much we can do.
