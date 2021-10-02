@@ -164,3 +164,31 @@ module TaxPrice =
 Obviously the rounding function is hardcoded, but can be easily extracted. When, and if, the time is right. Can easily go into the `TaxPrice` module, or a domain services module. We could skip the calculations by pattern matching for `0`, but it's honestly overkill. Another thing we could do is declare a type for the percentage of taxation, forcing it to be non-negative. Won't do it right now.
 
 Huh, we were talking about the receipt? We wrote a lot of types and little "real" code. I hope we won't be bitten in the popo later.
+
+### Our first "complex" function
+
+The factory from `ParsedOrderRow` to `CompleteOrderRow` is not something to scoff at; needs the argument annotated as inference cannot work out that we're enriching a "lesser" type. A huge red flag emerges that we probably need to move some functions used here in the types, like the match to get the int percentage. And we probably need a `Value` function for the Price as the active pattern is not sufficient (or my knowledge of the syntax is too low right now). I think active patterns can solve the TaxStatus combinatorial explosion in the match too, as I've seen something similar for FizzBuzz in F#.
+
+```f#
+module CompleteOrderRow =
+    let CreateFromParsedOrderRow (parsedOrderRow: ParsedOrderRow) =
+        let taxPercentage =
+            match parsedOrderRow.TaxStatus with
+            | Exempt, Local -> 0
+            | Exempt, Imported -> 5
+            | FullyTaxed, Local -> 10
+            | FullyTaxed, Imported -> 15
+
+        let totalPrice =
+            let unitPrice =
+                match parsedOrderRow.Item.UnitPrice with
+                | Price amount -> amount
+
+            TotalPrice(unitPrice * (decimal parsedOrderRow.Quantity))
+
+        { Quantity = parsedOrderRow.Quantity
+          Item = parsedOrderRow.Item
+          TaxStatus = parsedOrderRow.TaxStatus
+          TotalPrice = totalPrice
+          SalesTax = TaxPrice.CreateFromTotalPrice taxPercentage totalPrice }
+```

@@ -46,3 +46,25 @@ type CompleteOrderRow =
       TaxStatus: TaxStatus
       TotalPrice: TotalPrice
       SalesTax: TaxPrice }
+
+module CompleteOrderRow =
+    let CreateFromParsedOrderRow (parsedOrderRow: ParsedOrderRow) =
+        let taxPercentage =
+            match parsedOrderRow.TaxStatus with
+            | Exempt, Local -> 0
+            | Exempt, Imported -> 5
+            | FullyTaxed, Local -> 10
+            | FullyTaxed, Imported -> 15
+
+        let totalPrice =
+            let unitPrice =
+                match parsedOrderRow.Item.UnitPrice with
+                | Price amount -> amount
+
+            TotalPrice(unitPrice * (decimal parsedOrderRow.Quantity))
+
+        { Quantity = parsedOrderRow.Quantity
+          Item = parsedOrderRow.Item
+          TaxStatus = parsedOrderRow.TaxStatus
+          TotalPrice = totalPrice
+          SalesTax = TaxPrice.CreateFromTotalPrice taxPercentage totalPrice }
