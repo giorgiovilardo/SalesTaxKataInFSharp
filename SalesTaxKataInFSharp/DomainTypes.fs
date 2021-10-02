@@ -20,7 +20,29 @@ module Price =
 
     let (|Price|) (amount: decimal) = amount
 
-type Item =
-    { Name: string
-      Price: Price
+type Item = { Name: string; UnitPrice: Price }
+
+type TotalPrice = TotalPrice of decimal
+
+type TaxPrice = TaxPrice of decimal
+
+module TaxPrice =
+    let CreateFromTotalPrice percentageTaxed (TotalPrice totalPrice) =
+        totalPrice
+        |> fun totalPrice -> (totalPrice * decimal percentageTaxed) / 100M
+        |> fun preRoundPrice -> ceil (preRoundPrice * 20M) / 20M
+        |> TaxPrice
+
+    let (|TaxPrice|) amount = amount
+
+type ParsedOrderRow =
+    { Quantity: int
+      Item: Item
       TaxStatus: TaxStatus }
+
+type CompleteOrderRow =
+    { Quantity: int
+      Item: Item
+      TaxStatus: TaxStatus
+      TotalPrice: TotalPrice
+      SalesTax: TaxPrice }

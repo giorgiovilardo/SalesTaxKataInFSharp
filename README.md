@@ -3,6 +3,9 @@
 [Kata Text](KATA.md)
 
 This is more of a journal rather than a readme, as it's a sequential dump of how I approach the problem posed by the kata. It's a living document given how little time I have, so I hope to come back to it.
+It's divided in sessions, corresponding to the time I can actually sit and write 😂
+
+## First session
 
 ## Domain modeling
 
@@ -80,3 +83,84 @@ I'm leaving out quantity as it's not intrinsic to the item, it's more part of th
 I'm doubtful that `TaxStatus` should stay on the item now; something `Local` here might be `Imported` in another nation.
 For now, it's fine like this. Can we do something for the `Name`? Enforcing some rules, some pre-validation? Other than
 not being empty, there's not much we can do.
+
+## Second session
+
+I had the doubt that `Item` could be an union type of different kinds of items, like:
+
+```f#
+type Item =
+    | ExemptAndImportedItem
+    | ExemptAndLocalItem
+    | BaseTaxableAndLocalItem
+    // and so on...
+```
+
+and it's absolutely apparent that this leads to combinatorial explosions. Having a single `TaxStatus` is better, it just does not belong to the `Item` record probably, so let's extract it from the `Item` record. We still didn't write a line of code other than the helper methods for `Price`. Let's also rename the item field to `UnitPrice`, to be more clear.
+
+```f#
+type Item = { Name: string; UnitPrice: Price }
+```
+
+### The price, part 2
+
+Earlier I said that price can't be negative. Sure, it does not look like the price can be negative. But by talking with domain experts, we understandd that if the customer doesn't want an item **when it's already in the receipt**, the cashier can put the same item and the same quantity, just negative, to cancel out the price from the receipt/basket. (This is not a kata rule, just something I made up on the spot)
+
+With this insight, I still prefer to leave `Price` constrained. We can relax the constrains later, when modeling the receipt, with a more open `TotalPrice` that is `Price * Quantity` and is allowed to go negative. Who cares of having 2-3 different types for prices and having to have one set of constraints for everyone?
+
+### The receipt
+
+The domain looks a bit foggy in the receipt part. We receive some string data from somewhere, in batch; the batch is composed by one or more lines of a structure representing the quantity, the name (with extractable tax data) and the unit price. I think a cool name could be `OrderRow`, but I'm not 100% satisfied.
+
+The basic `OrderRow` looks like this in code:
+
+```f#
+type OrderRow =
+    { Quantity: int
+      Item: Item
+      TaxStatus: TaxStatus }
+```
+
+This seems insufficient tho. Where's the `TotalPrice`? Where's the sales tax amount?
+We could insert them in the record now and calculate them on parse, but I want to try with many many types today, so let's rename this to `ParsedOrderRow` and let's make another type called `CompleteOrderRow`. The names are sucky, I know this.
+
+```f#
+type ParsedOrderRow =
+    { Quantity: int
+      Item: Item
+      TaxStatus: TaxStatus }
+      
+type CompleteOrderRow =
+    { Quantity: int
+      Item: Item
+      TaxStatus: TaxStatus
+      TotalPrice: TotalPrice
+      SalesTax: TaxPrice }
+```
+
+We miss the types for `TotalPrice` and `TaxPrice`, so let's write them before the rows. `TotalPrice` is pretty unconstrained, so it's just a single case union deriving from `decimal`. `TaxPrice`, thinking about it has some constraints in that:
+
+* can exist only in presence of a sale, so a `TotalPrice` or a `Price`;
+* can be calculated only if, with the `Price`, there is the taxed percentage;
+* has to be rounded up to the nearest `0.05`.
+
+It's probably fine using a factory function that derives it from a `TotalPrice` and a percentage. All the thingies on private constructor and loads of tests (with FsCheck preferably) stays valid 🥸 I'll probably write some tests later, yes yes I will 🥸
+
+```f#
+type TotalPrice = TotalPrice of decimal
+
+type TaxPrice = TaxPrice of decimal
+
+module TaxPrice =
+    let CreateFromTotalPrice percentageTaxed (TotalPrice totalPrice) =
+        totalPrice
+        |> fun totalPrice -> (totalPrice * decimal percentageTaxed) / 100M
+        |> fun preRoundPrice -> ceil (preRoundPrice * 20M) / 20M
+        |> TaxPrice
+
+    let (|TaxPrice|) amount = amount
+```
+
+Obviously the rounding function is hardcoded, but can be easily extracted. When, and if, the time is right. Can easily go into the `TaxPrice` module, or a domain services module. We could skip the calculations by pattern matching for `0`, but it's honestly overkill. Another thing we could do is declare a type for the percentage of taxation, forcing it to be non-negative. Won't do it right now.
+
+Huh, we were talking about the receipt? We wrote a lot of types and little "real" code. I hope we won't be bitten in the popo later.
