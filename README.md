@@ -192,3 +192,63 @@ module CompleteOrderRow =
           TotalPrice = totalPrice
           SalesTax = TaxPrice.CreateFromTotalPrice taxPercentage totalPrice }
 ```
+
+Let's refactor a bit.
+
+### Random refactor for conciseness
+
+The new `TaxStatus` type:
+
+```f#
+type TaxStatus = BaseTaxStatus * ImportStatus
+
+module TaxStatus =
+    let GetPercentage status =
+        match status with
+        | Exempt, Local -> 0
+        | Exempt, Imported -> 5
+        | FullyTaxed, Local -> 10
+        | FullyTaxed, Imported -> 15
+```
+
+This goes under the `Price` module:
+
+```f#
+let Value (Price price) = price
+```
+
+And this is the new `CompleteOrderRow` module:
+
+```f#
+module CompleteOrderRow =
+    let CreateFromParsedOrderRow (parsedOrderRow: ParsedOrderRow) =
+        let taxPercentage =
+            TaxStatus.GetPercentage parsedOrderRow.TaxStatus
+
+        let totalPrice =
+            parsedOrderRow.Item.UnitPrice
+            |> Price.Value
+            |> (*) (decimal parsedOrderRow.Quantity)
+            |> TotalPrice
+
+        let salesTax =
+            TaxPrice.CreateFromTotalPrice taxPercentage totalPrice
+
+        { Quantity = parsedOrderRow.Quantity
+          Item = parsedOrderRow.Item
+          TaxStatus = parsedOrderRow.TaxStatus
+          TotalPrice = totalPrice
+          SalesTax = salesTax }
+```
+
+I like to keep variables not inlined so the record constructor looks neater, but it's a personal choice. That total price logic is still a longish chain of semi-anonymous things so maybe it's not easily followed, but I'm fine with having extracted the tax percentage logic into the type. Will think about 
+
+### Recap
+
+We now have a buttload of types, but some kind of form is emerging. An `Order`, or a Receipt, is basically a collection of `CompleteOrderRow`. We know that an order with 0 rows makes absolutely no sense, so, instead of having `type Order = { Rows: CompleteOrderRow list }` in the real world we would probably use [`NonEmptyList` from FSharpPlus.Data](https://fsprojects.github.io/FSharpPlus/reference/fsharpplus-data-nonemptylist.html), but for now a simple `list` is ok.
+
+```f#
+type Order = { Rows: CompleteOrderRow list }
+```
+
+The chain our kata will follow is now sort of clear: a string enters the system, it's transformed into some `ParsedOrderRow`s that become a list of `CompleteOrderRow` that become an `Order`. From there we can output the receipt string.

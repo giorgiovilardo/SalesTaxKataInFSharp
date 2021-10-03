@@ -10,6 +10,14 @@ type ImportStatus =
 
 type TaxStatus = BaseTaxStatus * ImportStatus
 
+module TaxStatus =
+    let GetPercentage status =
+        match status with
+        | Exempt, Local -> 0
+        | Exempt, Imported -> 5
+        | FullyTaxed, Local -> 10
+        | FullyTaxed, Imported -> 15
+
 type Price = Price of decimal
 
 module Price =
@@ -17,6 +25,8 @@ module Price =
         match amount with
         | amount when amount >= 0M -> Price amount
         | _ -> failwith "Price can't be negative!"
+
+    let Value (Price price) = price
 
     let (|Price|) (amount: decimal) = amount
 
@@ -50,21 +60,21 @@ type CompleteOrderRow =
 module CompleteOrderRow =
     let CreateFromParsedOrderRow (parsedOrderRow: ParsedOrderRow) =
         let taxPercentage =
-            match parsedOrderRow.TaxStatus with
-            | Exempt, Local -> 0
-            | Exempt, Imported -> 5
-            | FullyTaxed, Local -> 10
-            | FullyTaxed, Imported -> 15
+            TaxStatus.GetPercentage parsedOrderRow.TaxStatus
 
         let totalPrice =
-            let unitPrice =
-                match parsedOrderRow.Item.UnitPrice with
-                | Price amount -> amount
+            parsedOrderRow.Item.UnitPrice
+            |> Price.Value
+            |> (*) (decimal parsedOrderRow.Quantity)
+            |> TotalPrice
 
-            TotalPrice(unitPrice * (decimal parsedOrderRow.Quantity))
+        let salesTax =
+            TaxPrice.CreateFromTotalPrice taxPercentage totalPrice
 
         { Quantity = parsedOrderRow.Quantity
           Item = parsedOrderRow.Item
           TaxStatus = parsedOrderRow.TaxStatus
           TotalPrice = totalPrice
-          SalesTax = TaxPrice.CreateFromTotalPrice taxPercentage totalPrice }
+          SalesTax = salesTax }
+
+type Order = { Rows: CompleteOrderRow list }
