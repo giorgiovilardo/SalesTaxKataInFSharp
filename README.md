@@ -251,4 +251,16 @@ We now have a buttload of types, but some kind of form is emerging. An `Order`, 
 type Order = { Rows: CompleteOrderRow list }
 ```
 
-The chain our kata will follow is now sort of clear: a string enters the system, it's transformed into some `ParsedOrderRow`s that become a list of `CompleteOrderRow` that become an `Order`. From there we can output the receipt string.
+The chain our kata will follow is now sort of clear: a string enters the system, it's transformed into some `ParsedOrderRow`s that become a list of `CompleteOrderRow` that becomes an `Order`. From there we can output the receipt string.
+
+### Third session
+
+It's harder to keep track of my flow of thought since I'm tired :)
+
+I wrote some more code, it's starting to look like a mess but the core domain logic is there, on the place where I think it makes sense. I'm missing the parser in the domain services and I'll try to refactor. I didn't use TDD techniques as they impose me YALOTTKTO *(yet another layer of things to keep tabs on)* 😁 hope my colleagues don't see this 😆 jk, this is more an exercise to see where the type system brings me rather than a "let's write it correctly".
+
+I had to add some `Value` functions to unpack from the custom type. I'm probably missing some FP concept here, because a custom type looks a lot like a `Some` so there should be some thingy I can do to work better with those "constrained" types around the app. (Remember to check out lenses). Sadly I still could not finish SW book, so maybe I'm anticipating things.
+
+I wrote `Order` this time as a type with members rather than a type + a module of functions, just to see how it works in `fsi`, and wrote a couple of helper methods to avoid having a huge `ToReceipt` func. Not having to constantly pass args is cool, I suppose you have to use currying more in real apps. I didn't like `List.append` in the pipeline but I refactored it out before committing so you won't see it. I think appending to the end of a list is so hard that reducing to string and concatenating is the better approach.
+
+Refactor opportunity: I don't like `Order` as a record. No value gained by it, would have been easier as a simple type alias.
