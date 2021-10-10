@@ -253,7 +253,7 @@ type Order = { Rows: CompleteOrderRow list }
 
 The chain our kata will follow is now sort of clear: a string enters the system, it's transformed into some `ParsedOrderRow`s that become a list of `CompleteOrderRow` that becomes an `Order`. From there we can output the receipt string.
 
-### Third session
+## Third session
 
 It's harder to keep track of my flow of thought since I'm tired :)
 
@@ -264,3 +264,5 @@ I had to add some `Value` functions to unpack from the custom type. I'm probably
 I wrote `Order` this time as a type with members rather than a type + a module of functions, just to see how it works in `fsi`, and wrote a couple of helper methods to avoid having a huge `ToReceipt` func. Not having to constantly pass args is cool, I suppose you have to use currying more in real apps. I didn't like `List.append` in the pipeline but I refactored it out before committing so you won't see it. I think appending to the end of a list is so hard that reducing to string and concatenating is the better approach.
 
 Refactor opportunity: I don't like `Order` as a record. No value gained by it, would have been easier as a simple type alias.
+
+## Fourth session
