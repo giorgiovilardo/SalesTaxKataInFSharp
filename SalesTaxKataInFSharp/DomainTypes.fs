@@ -11,12 +11,19 @@ type ImportStatus =
 type TaxStatus = BaseTaxStatus * ImportStatus
 
 module TaxStatus =
-    let GetPercentage status =
+    let private GetBaseTaxPercentage status =
         match status with
-        | Exempt, Local -> 0
-        | Exempt, Imported -> 5
-        | FullyTaxed, Local -> 10
-        | FullyTaxed, Imported -> 15
+        | Exempt -> 0
+        | FullyTaxed -> 10
+
+    let private GetImportTaxPercentage status =
+        match status with
+        | Local -> 0
+        | Imported -> 5
+
+    let GetPercentage ((baseStatus, importStatus): TaxStatus) =
+        GetBaseTaxPercentage baseStatus
+        + GetImportTaxPercentage importStatus
 
 type Price = Price of decimal
 

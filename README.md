@@ -266,3 +266,26 @@ I wrote `Order` this time as a type with members rather than a type + a module o
 Refactor opportunity: I don't like `Order` as a record. No value gained by it, would have been easier as a simple type alias.
 
 ## Fourth session
+
+Early morning session before work FTW!
+
+```f#
+module TaxStatus =
+    let private GetBaseTaxPercentage status =
+        match status with
+        | Exempt -> 0
+        | FullyTaxed -> 10
+
+    let private GetImportTaxPercentage status =
+        match status with
+        | Local -> 0
+        | Imported -> 5
+
+    let GetPercentage ((baseStatus, importStatus): TaxStatus) =
+        GetBaseTaxPercentage baseStatus
+        + GetImportTaxPercentage importStatus
+```
+
+This is the "refactored" TaxStatus module, as I really disliked that matrix of patterns on tax-statuses.
+
+I decided against writing the parser for now, it's not really important for now as it's just an exercise in regex matching or FParsec usage.
