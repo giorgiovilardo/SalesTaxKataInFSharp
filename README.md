@@ -289,3 +289,5 @@ module TaxStatus =
 This is the "refactored" TaxStatus module, as I really disliked that matrix of patterns on tax-statuses.
 
 I decided against writing the parser for now, it's not really important for now as it's just an exercise in regex matching or FParsec usage.
+
+A couple late afternoons later, it's time to refactor `Price` to be an option; domain records will stay the same as I want the domain to be the most error/option free as possible; all bad stuff has to stay at the edges. The `Create` function for prices is a good candidate to return option tho.  

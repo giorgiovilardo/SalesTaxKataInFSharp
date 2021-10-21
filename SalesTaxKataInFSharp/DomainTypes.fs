@@ -28,34 +28,32 @@ module TaxStatus =
 type Price = Price of decimal
 
 module Price =
-    let Create amount =
+    let create amount =
         match amount with
-        | amount when amount >= 0M -> Price amount
-        | _ -> failwith "Price can't be negative!"
+        | amount when amount >= 0M -> Some(Price amount)
+        | _ -> None
 
-    let Value (Price price) = price
+    let get (Price price) = price
 
-    let (|Price|) (amount: decimal) = amount
-
-type Item = { Name: string; UnitPrice: Price }
+type Item =
+    { Name: string
+      UnitPrice: Price option }
 
 type TotalPrice = TotalPrice of decimal
 
 module TotalPrice =
-    let Value (TotalPrice totalPrice) = totalPrice
+    let get (TotalPrice totalPrice) = totalPrice
 
 type TaxPrice = TaxPrice of decimal
 
 module TaxPrice =
-    let CreateFromTotalPrice percentageTaxed (TotalPrice totalPrice) =
+    let ofTotalPrice percentageTaxed (TotalPrice totalPrice) =
         totalPrice
         |> fun totalPrice -> (totalPrice * decimal percentageTaxed) / 100M
         |> fun preRoundPrice -> ceil (preRoundPrice * 20M) / 20M
         |> TaxPrice
 
-    let Value (TaxPrice taxPrice) = taxPrice
-
-    let (|TaxPrice|) amount = amount
+    let get (TaxPrice taxPrice) = taxPrice
 
 type ParsedOrderRow =
     { Quantity: int
@@ -71,21 +69,22 @@ type CompleteOrderRow =
 
 module CompleteOrderRow =
     let ToString order =
-        $"{order.Quantity} {order.Item.Name}: %.2f{TaxPrice.Value order.SalesTax
-                                                   + TotalPrice.Value order.TotalPrice}"
+        $"{order.Quantity} {order.Item.Name}: %.2f{TaxPrice.get order.SalesTax
+                                                   + TotalPrice.get order.TotalPrice}"
 
-    let CreateFromParsedOrderRow (parsedOrderRow: ParsedOrderRow) =
+    let ofParsedOrderRow (parsedOrderRow: ParsedOrderRow) =
         let taxPercentage =
             TaxStatus.GetPercentage parsedOrderRow.TaxStatus
 
         let totalPrice =
             parsedOrderRow.Item.UnitPrice
-            |> Price.Value
+            |> Option.defaultValue (Price 0M)
+            |> Price.get
             |> (*) (decimal parsedOrderRow.Quantity)
             |> TotalPrice
 
         let salesTax =
-            TaxPrice.CreateFromTotalPrice taxPercentage totalPrice
+            TaxPrice.ofTotalPrice taxPercentage totalPrice
 
         { Quantity = parsedOrderRow.Quantity
           Item = parsedOrderRow.Item
@@ -98,29 +97,77 @@ type Order =
     // This behaviour should be extracted with some high order function?
     // I tried and the signature is ('a -> decimal) -> 'a -> decimal
     // Feels like I'm missing something here
-    member this.SumSales =
+    member this.sumSales =
         this.Rows
-        |> List.map (fun orderRow -> TaxPrice.Value orderRow.SalesTax)
+        |> List.map (fun orderRow -> TaxPrice.get orderRow.SalesTax)
+        |> List.reduce (+)
+
+    member this.sumPrices =
+        this.Rows
+        |> List.map (fun orderRow -> TotalPrice.get orderRow.TotalPrice)
         |> List.sum
 
-    member this.SumPrices =
-        this.Rows
-        |> List.map (fun orderRow -> TotalPrice.Value orderRow.TotalPrice)
-        |> List.sum
+    //    member this.sum =
+//        let mapAndSum f x = List.map f >> List.sum
+//        this.Rows |> mapAndSum f
 
     member this.ToReceipt =
+        let mapReduce =
+            List.map CompleteOrderRow.ToString
+            >> List.map ((+) "\n")
+            >> (List.reduce (+))
+
         this.Rows
         |> List.map CompleteOrderRow.ToString
-        |> List.map (fun x -> x + "\n")
+        |> List.map ((+) "\n")
         |> List.reduce (+)
-        |> (+) $"Sales Taxes: %.2f{this.SumSales}\n"
-        |> (+) $"Total: %.2f{this.SumPrices}\n"
+        |> (+) $"Sales Taxes: %.2f{this.sumSales}\n"
+        |> (+) $"Total: %.2f{this.sumPrices}\n"
 
 // the "Test suite"
 //let item1 = { Name="TestItem 1"; UnitPrice = Price 19.99M}
 //let item2 = { Name="TestItem 2"; UnitPrice = Price 29.99M}
-//let por1 = { Quantity = 1; Item = item; TaxStatus = FullyTaxed, Local}
+//let por1 = { Quantity = 1; Item = item1; TaxStatus = FullyTaxed, Local}
 //let por2 = { Quantity = 3; Item = item2; TaxStatus = FullyTaxed, Local }
 //let com1 = CompleteOrderRow.CreateFromParsedOrderRow por1
 //let com2 = CompleteOrderRow.CreateFromParsedOrderRow por2
 //let k = { Rows = [ com1; com2 ]};;
+
+// the "Option test suite"
+//let item1 =
+//    { Name = "TestItem 1"
+//      UnitPrice = Price.create 19.99M }
+//
+//let item2 =
+//    { Name = "TestItem 2"
+//      UnitPrice = Price.create 29.99M }
+//
+//let item3 =
+//    { Name = "TestItem 3"
+//      UnitPrice = Price.create -15M }
+//
+//let por1 =
+//    { Quantity = 1
+//      Item = item1
+//      TaxStatus = FullyTaxed, Local }
+//
+//let por2 =
+//    { Quantity = 3
+//      Item = item2
+//      TaxStatus = FullyTaxed, Local }
+//
+//let por3 =
+//    { Quantity = 4
+//      Item = item3
+//      TaxStatus = FullyTaxed, Local }
+//
+//let com1 =
+//    CompleteOrderRow.ofParsedOrderRow por1
+//
+//let com2 =
+//    CompleteOrderRow.ofParsedOrderRow por2
+//
+//let com3 =
+//    CompleteOrderRow.ofParsedOrderRow por3
+//
+//let k = { Rows = [ com1; com2 ] }
